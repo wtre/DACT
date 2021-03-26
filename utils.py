@@ -70,7 +70,11 @@ def calculate_psnr(im1, im2, border=0):
         return float('inf')
     return 20 * math.log10(255.0 / math.sqrt(mse))
 
-def batch_PSNR(img, imclean, border=0):
+def batch_PSNR(img, imclean, border=0): # modified so it could count the only middle slice
+    ################################
+    img = img[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+    imclean = imclean[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+    ################################
     Img = img.data.cpu().numpy()
     Iclean = imclean.data.cpu().numpy()
     Img = img_as_ubyte(Img)
@@ -80,7 +84,11 @@ def batch_PSNR(img, imclean, border=0):
         PSNR += calculate_psnr(Iclean[i,:,].transpose((1,2,0)), Img[i,:,].transpose((1,2,0)), border)
     return (PSNR/Img.shape[0])
 
-def batch_SSIM(img, imclean, border=0):
+def batch_SSIM(img, imclean, border=0): # modified so it could count the only middle slice
+    ################################
+    img = img[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+    imclean = imclean[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+    ################################
     Img = img.data.cpu().numpy()
     Iclean = imclean.data.cpu().numpy()
     Img = img_as_ubyte(Img)

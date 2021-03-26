@@ -33,20 +33,21 @@ _modes = ['train', 'val']
 
 def train_step_P(net, x, y, optimizerP, args): # Discriminator
     ##################
-    x = x[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
-    y = y[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+    x_ = x[:, 1, :, :].unsqueeze(1)
+    y_ = y[:, 1, :, :].unsqueeze(1)
     ##################
     alpha = args['alpha']
     batch_size =x.shape[0]
     # zero the gradient
     net['P'].zero_grad()
     # raal data
-    real_data = torch.cat([x,y], 1)
+    real_data = torch.cat([x_,y_], 1) ### x<-1, y<-1
     real_loss = net['P'](real_data).mean()
     # generator fake data
     with torch.autograd.no_grad():
-        fake_y = sample_generator(net['G'], x) ### <<<<<<<<<<
-        fake_y_data = torch.cat([x, fake_y], 1)
+        fake_y = sample_generator(net['G'], x) ### x<-3
+        fake_y = fake_y[:, 1, :, :].unsqueeze(1)
+        fake_y_data = torch.cat([x_, fake_y], 1)
     fake_y_loss = net['P'](fake_y_data.data).mean() ### <<<<<<<<<<
     grad_y_loss = gradient_penalty(real_data, fake_y_data, net['P'], args['lambda_gp'])
     loss_y = alpha * (fake_y_loss - real_loss)
@@ -54,7 +55,8 @@ def train_step_P(net, x, y, optimizerP, args): # Discriminator
     # Denoiser fake data
     with torch.autograd.no_grad():
         fake_x = y - net['D'](y) ### <<<<<<<<<<
-        fake_x_data = torch.cat([fake_x, y], 1)
+        fake_x = fake_x[:, 1, :, :].unsqueeze(1)
+        fake_x_data = torch.cat([fake_x, y_], 1)
     fake_x_loss = net['P'](fake_x_data.data).mean() ### <<<<<<<<<<
     grad_x_loss = gradient_penalty(real_data, fake_x_data, net['P'], args['lambda_gp'])
     loss_x = (1-alpha) * (fake_x_loss - real_loss)
@@ -66,19 +68,20 @@ def train_step_P(net, x, y, optimizerP, args): # Discriminator
 
     return loss, loss_x, loss_xg, loss_y, loss_yg
 
-def train_step_G(net, x, y, optimizerG, args): # Noise generator
+def train_step_G(net, x, y, optimizerG, args): # Noise generator - residual only
     alpha = args['alpha']
     batch_size = x.shape[0]
     # zero the gradient
     net['G'].zero_grad()
     fake_y = sample_generator(net['G'], x)
     ##################
-    x = x[:, 1, :, :]
-    y = y[:, 1, :, :]
-    fake_y = fake_y[:, 1, :, :]
+    x_ = x[:, 1, :, :].unsqueeze(1)
+    y_ = y[:, 1, :, :].unsqueeze(1)
+    fake_y_ = fake_y[:, 1, :, :].unsqueeze(1)
     ##################
-    loss_mean = args['tau_G'] * mean_match(x, y, fake_y, kernel.to(x.device), _C)
-    fake_y_data = torch.cat([x, fake_y], 1)
+    loss_mean = args['tau_G'] * mean_match(x_.repeat(1, 3, 1, 1), y_.repeat(1, 3, 1, 1), fake_y_.repeat(1, 3, 1, 1),
+                                           kernel.to(x_.repeat(1, 3, 1, 1).device), _C)
+    fake_y_data = torch.cat([x_, fake_y_], 1)
     fake_y_loss = net['P'](fake_y_data).mean()
     loss_y = -alpha * fake_y_loss
     loss = loss_y + loss_mean
@@ -88,19 +91,19 @@ def train_step_G(net, x, y, optimizerG, args): # Noise generator
 
     return loss, loss_y, loss_mean, fake_y.data
 
-def train_step_D(net, x, y, optimizerD, args): # Denoiser
+def train_step_D(net, x, y, optimizerD, args): # Denoiser - residual only
     alpha = args['alpha']
     batch_size = x.shape[0]
     # zero the gradient
     net['D'].zero_grad()
     fake_x = y -net['D'](y)
     ##################
-    x = x[:, 1, :, :]
-    y = y[:, 1, :, :]
-    fake_x = fake_x[:, 1, :, :]
+    x_ = x[:, 1, :, :].unsqueeze(1)
+    y_ = y[:, 1, :, :].unsqueeze(1)
+    fake_x_ = fake_x[:, 1, :, :].unsqueeze(1)
     ##################
-    mae_loss = F.l1_loss(fake_x, x, reduction='mean')
-    fake_x_data = torch.cat([fake_x, y], 1)
+    mae_loss = F.l1_loss(fake_x_, x_, reduction='mean')
+    fake_x_data = torch.cat([fake_x_, y_], 1)
     fake_x_loss = net['P'](fake_x_data).mean()
     loss_x = -(1-alpha) * fake_x_loss
     loss_e =  args['tau_D'] * mae_loss
@@ -112,7 +115,7 @@ def train_step_D(net, x, y, optimizerD, args): # Denoiser
     return loss, loss_x, loss_e, mae_loss, fake_x.data
 
 def train_epoch(net, datasets, optimizer, lr_scheduler, args):
-    batch_size = {'train':args['batch_size'], 'val':4}
+    batch_size = {'train':args['batch_size'], 'val':16} #### validation loader batch size
     data_loader = {phase:uData.DataLoader(datasets[phase], batch_size=batch_size[phase],
                    shuffle=True, num_workers=args['num_workers'], pin_memory=True) for phase in _modes}
     num_data = {phase:len(datasets[phase]) for phase in _modes}
@@ -177,15 +180,17 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
                     writer.add_scalar('Train GNet Loss Iter', GL.item(), step)
                     step += 1
                     if (ii+1) % (10*args['print_freq'])==0:
-                        x1 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
+                        x1 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                         writer.add_image(phase+' Noisy Image', x1, step_img[phase])
-                        x2 = vutils.make_grid(im_gt, normalize=True, scale_each=True)
-                        writer.add_image(phase+' GroundTruth', x2, step_img[phase])
-                        x3 = vutils.make_grid(im_denoise.clamp_(0.0,1.0), normalize=True,
-                                                                                    scale_each=True)
+                        x2 = vutils.make_grid(im_gt[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
+                        writer.add_image(phase+' Ground Truth', x2, step_img[phase])
+                        x6 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
+                        writer.add_image(phase+' Noisy Image 3 channels', x6, step_img[phase])
+                        x7 = vutils.make_grid(im_gt, normalize=True, scale_each=True)
+                        writer.add_image(phase+' Ground Truth 3 channels', x7, step_img[phase])
+                        x3 = vutils.make_grid(im_denoise[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                         writer.add_image(phase+' Denoised images', x3, step_img[phase])
-                        x4 = vutils.make_grid(im_generate.clamp_(0.0, 1.0), normalize=True,
-                                                                                    scale_each=True)
+                        x4 = vutils.make_grid(im_generate[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                         writer.add_image(phase+' Generated images', x4, step_img[phase])
                         step_img[phase] += 1
 
@@ -224,15 +229,15 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
             ########################################
             HU_min = -160
             HU_range = 400
-            im_denoise = (im_denoise - HU_min)/HU_range
-            im_gt = (im_gt - HU_min)/HU_range
-            im_denoise.clamp_(0.0, 1.0)
-            im_gt.clamp_(0.0, 1.0)
+            im_denoise_ = (im_denoise - HU_min)/HU_range
+            im_gt_ = (im_gt - HU_min)/HU_range
+            im_denoise_.clamp_(0.0, 1.0)
+            im_gt_.clamp_(0.0, 1.0)
             ########################################
             mae_epoch[phase] += mae_iter
-            psnr_iter = batch_PSNR(im_denoise, im_gt)
+            psnr_iter = batch_PSNR(im_denoise_, im_gt_)
             psnr_per_epoch += psnr_iter
-            ssim_iter = batch_SSIM(im_denoise, im_gt)
+            ssim_iter = batch_SSIM(im_denoise_, im_gt_)
             ssim_per_epoch += ssim_iter
             # print statistics every log_interval mini_batches
             if (ii+1) % 50 == 0:
@@ -241,12 +246,14 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
                 print(log_str.format(epoch+1, args['epochs'], phase, ii+1, num_iter_epoch[phase],
                                                                     mae_iter, psnr_iter, ssim_iter))
                 # tensorboard summary
-                x1 = vutils.make_grid(im_denoise, normalize=True, scale_each=True)
+                x1 = vutils.make_grid(im_denoise[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                 writer.add_image(phase+' Denoised images', x1, step_img[phase])
-                x2 = vutils.make_grid(im_gt, normalize=True, scale_each=True)
+                x2 = vutils.make_grid(im_gt[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                 writer.add_image(phase+' GroundTruth', x2, step_img[phase])
-                x5 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
+                x5 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                 writer.add_image(phase+' Noisy Image', x5, step_img[phase])
+                x6 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
+                writer.add_image(phase+' Noisy Image 3 slices', x6, step_img[phase])
                 step_img[phase] += 1
 
         psnr_per_epoch /= (ii+1)
@@ -297,7 +304,8 @@ def main():
     # build up the generator
     netG= UNetG(_C, wf=args['wf'], depth=args['depth']).cuda()
     # build up the discriminator
-    netP = DiscriminatorLinear(_C*2, ndf=args['ndf']).cuda()
+    # netP = DiscriminatorLinear(_C*2, ndf=args['ndf']).cuda() ####
+    netP = DiscriminatorLinear(2, ndf=args['ndf']).cuda()
     net = {'D':netD, 'G':netG, 'P':netP}
 
     # optimizer
