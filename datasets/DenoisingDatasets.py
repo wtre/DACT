@@ -66,8 +66,8 @@ class BenchmarkTest(BaseDataSetH5):
 class LDCTTrain(BaseDataSetH5):
     def __init__(self, h5_file, length, pch_size=128, mask=False):
         # TODO: h5_file and mask is not working!
-        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/patch_128/patch_128_LDCT', 'train_LDCT_*.npy')))
-        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/patch_128/patch_128_NDCT', 'train_NDCT_*.npy')))
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_01_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_01_*.npy')))
         self.mask = mask
 
     def __getitem__(self, index):
@@ -86,8 +86,8 @@ class LDCTTrain(BaseDataSetH5):
 
 class LDCTTest(BaseDataSetH5):
     def __init__(self, index):
-        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/patch_128/patch_128_LDCT_test', 'train_LDCT_*.npy')))
-        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/patch_128/patch_128_NDCT_test', 'train_NDCT_*.npy')))
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_val', 'train_LDCT_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_val', 'train_NDCT_*.npy')))
 
     def __getitem__(self, index):
         x = np.load(self.files_x[index])
@@ -99,6 +99,21 @@ class LDCTTest(BaseDataSetH5):
     def __len__(self):
         return len(self.files_x)
 
+
+class LDCTTest512(BaseDataSetH5):
+    def __init__(self, index):
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/512_LDCT_test', 'test_LDCT_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/512_NDCT_test', 'test_NDCT_*.npy')))
+
+    def __getitem__(self, index):
+        x = np.load(self.files_x[index])
+        x = torch.from_numpy(x).float().squeeze().permute((2,0,1))
+        y = np.load(self.files_y[index])
+        y = torch.from_numpy(y).float().squeeze().permute((2,0,1))
+        return x, y
+
+    def __len__(self):
+        return len(self.files_x)
 
 
 class FakeTrain(BaseDataSetFolder):
