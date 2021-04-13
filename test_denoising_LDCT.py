@@ -24,10 +24,15 @@ _C = 3
 _modes = ['val']
 
 
+def from4kto400(input):
+    out = input * 4096 - 1024
+    return ((out + 160)/400).clamp_(0.0, 1.0)
+
+
 def test_all(net, datasets, args):
     batch_size = {'val':args['batch_size']}
     data_loader = {phase:uData.DataLoader(datasets[phase], batch_size=batch_size[phase],
-                                          shuffle=True, num_workers=args['num_workers'], pin_memory=True) for phase in _modes}
+                                          shuffle=False, num_workers=args['num_workers'], pin_memory=True) for phase in _modes}
     num_data = {phase:len(datasets[phase]) for phase in _modes}
     num_iter_epoch = {phase: ceil(num_data[phase] / batch_size[phase]) for phase in _modes}
     step_img = args['step_img'] if False else {x:0 for x in _modes}
@@ -50,10 +55,12 @@ def test_all(net, datasets, args):
         ########################################
         HU_min = -160
         HU_range = 400
-        im_denoise_ = (im_denoise - HU_min)/HU_range
+        # im_denoise_ = (im_denoise - HU_min)/HU_range
         im_gt_ = (im_gt - HU_min)/HU_range
-        im_denoise_.clamp_(0.0, 1.0)
+        # im_denoise_.clamp_(0.0, 1.0)
         im_gt_.clamp_(0.0, 1.0)
+        # im_gt_ = from4kto400(im_gt)
+        im_denoise_ = from4kto400(im_denoise)
         ########################################
         mae_epoch[phase] += mae_iter
         psnr_iter = batch_PSNR(im_denoise_, im_gt_)

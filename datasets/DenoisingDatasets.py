@@ -64,17 +64,21 @@ class BenchmarkTest(BaseDataSetH5):
 # Custom Datasets: Mayo
 # TODO: [doing now] swap the following two function into the mayo ones
 class LDCTTrain(BaseDataSetH5):
-    def __init__(self, h5_file, length, pch_size=128, mask=False):
+    def __init__(self, h5_file, length, pch_size=128, mask=False, ifnorm=False):
         # TODO: h5_file and mask is not working!
-        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_01_*.npy')))
-        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_01_*.npy')))
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_*.npy')))
         self.mask = mask
+        self.ifnorm = ifnorm
 
     def __getitem__(self, index):
         x = np.load(self.files_x[index])
         x = torch.from_numpy(x).float().permute((2,0,1))
         y = np.load(self.files_y[index])
         y = torch.from_numpy(y).float().permute((2,0,1))
+        if self.ifnorm:
+            x = torch.clamp((x+1024)/4096, 0, 1)
+            y = torch.clamp((y+1024)/4096, 0, 1)
         if self.mask:
             return x, y, torch.ones((1,1,1), dtype=torch.float32)
         else:
@@ -85,15 +89,19 @@ class LDCTTrain(BaseDataSetH5):
 
 
 class LDCTTest(BaseDataSetH5):
-    def __init__(self, index):
-        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_val', 'train_LDCT_*.npy')))
-        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_val', 'train_NDCT_*.npy')))
+    def __init__(self, index, ifnorm=False):
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_val', 'val_LDCT_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_val', 'val_NDCT_*.npy')))
+        self.ifnorm = ifnorm
 
     def __getitem__(self, index):
         x = np.load(self.files_x[index])
         x = torch.from_numpy(x).float().permute((2,0,1))
         y = np.load(self.files_y[index])
         y = torch.from_numpy(y).float().permute((2,0,1))
+        if self.ifnorm:
+            x = torch.clamp((x+1024)/4096, 0, 1)
+            y = torch.clamp((y+1024)/4096, 0, 1)
         return x, y
 
     def __len__(self):
@@ -101,15 +109,19 @@ class LDCTTest(BaseDataSetH5):
 
 
 class LDCTTest512(BaseDataSetH5):
-    def __init__(self, index):
+    def __init__(self, index, ifnorm=False):
         self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/512_LDCT_test', 'test_LDCT_*.npy')))
         self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/512_NDCT_test', 'test_NDCT_*.npy')))
+        self.ifnorm = ifnorm
 
     def __getitem__(self, index):
         x = np.load(self.files_x[index])
         x = torch.from_numpy(x).float().squeeze().permute((2,0,1))
         y = np.load(self.files_y[index])
         y = torch.from_numpy(y).float().squeeze().permute((2,0,1))
+        if self.ifnorm:
+            x = torch.clamp((x+1024)/4096, 0, 1)
+            y = torch.clamp((y+1024)/4096, 0, 1)
         return x, y
 
     def __len__(self):

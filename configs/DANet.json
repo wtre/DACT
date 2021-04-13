@@ -6,7 +6,7 @@
     "lr_D": 1e-4,
     "lr_G": 1e-4,
     "lr_P": 2e-4,
-    "print_freq": 100,
+    "print_freq": 50,
     "num_workers": 4, 
     "gpu_id": 1,
     "resume": "",
@@ -36,7 +36,7 @@
     # kernel size for the Gauss filter in loss function
     "ksize": 5,
     "lambda_gp": 10,
-    "tau_D": 1000,
-    "tau_G": 10,
+    "tau_D": 1000, # could be 1000*4096
+    "tau_G": 10, # could be 10*4096
     "num_critic": 3
 }

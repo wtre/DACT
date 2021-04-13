@@ -5,7 +5,7 @@
     "num_workers": 4, 
     "gpu_id": 1,
     # path to the binary file
-    "model_path": "./models_DANet/model_13",
+    "model_path": "./models_DANet/model_027",
 
     # additional settings (not yet)
 

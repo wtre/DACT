@@ -114,6 +114,12 @@ def train_step_D(net, x, y, optimizerD, args): # Denoiser - residual only
 
     return loss, loss_x, loss_e, mae_loss, fake_x.data
 
+
+def from4kto400(input):
+    out = input * 4096 - 1024
+    return ((out + 160)/400).clamp_(0.0, 1.0)
+
+
 def train_epoch(net, datasets, optimizer, lr_scheduler, args):
     batch_size = {'train':args['batch_size'], 'val':16} #### validation loader batch size
     data_loader = {phase:uData.DataLoader(datasets[phase], batch_size=batch_size[phase],
@@ -123,6 +129,9 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
     step = args['step'] if args['resume'] else 0
     step_img = args['step_img'] if args['resume'] else {x:0 for x in _modes}
     writer = SummaryWriter(str(Path(args['log_dir'])))
+
+    best_val_ssim = 0
+    best_epoch = -1
     for epoch in range(args['epoch_start'], args['epochs']):
         loss_epoch = {x:0 for x in ['PL', 'DL', 'GL']}
         subloss_epoch = {x:0 for x in ['Px', 'Pxg', 'Py', 'Pyg', 'Dx', 'DE', 'DAE', 'Gy', 'GMean',
@@ -227,13 +236,19 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
             mae_iter = F.l1_loss(im_denoise, im_gt)
             # im_denoise.clamp_(0.0, 1.0) ####
             ########################################
-            HU_min = -160
-            HU_range = 400
-            im_denoise_ = (im_denoise - HU_min)/HU_range
-            im_gt_ = (im_gt - HU_min)/HU_range
-            im_denoise_.clamp_(0.0, 1.0)
-            im_gt_.clamp_(0.0, 1.0)
+            # HU_min = -160
+            # HU_range = 400
+            # im_denoise_ = (im_denoise - HU_min)/HU_range
+            # im_gt_ = (im_gt - HU_min)/HU_range
+            # im_denoise_.clamp_(0.0, 1.0)
+            # im_gt_.clamp_(0.0, 1.0)
+            im_gt_ = from4kto400(im_gt)
+            im_denoise_ = from4kto400(im_denoise)
             ########################################
+            # q = np.array([0, .01, .25, .5, .75, .99, 1])
+            # print(' gt and denoise clamp check')
+            # print(np.quantile(im_gt_.cpu().numpy(), q))
+            # print(np.quantile(im_denoise_.cpu().numpy(), q))
             mae_epoch[phase] += mae_iter
             psnr_iter = batch_PSNR(im_denoise_, im_gt_)
             psnr_per_epoch += psnr_iter
@@ -246,13 +261,15 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
                 print(log_str.format(epoch+1, args['epochs'], phase, ii+1, num_iter_epoch[phase],
                                                                     mae_iter, psnr_iter, ssim_iter))
                 # tensorboard summary
-                x1 = vutils.make_grid(im_denoise[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
+                x1 = vutils.make_grid(im_denoise_[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                 writer.add_image(phase+' Denoised images', x1, step_img[phase])
-                x2 = vutils.make_grid(im_gt[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
+                x2 = vutils.make_grid(im_gt_[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                 writer.add_image(phase+' GroundTruth', x2, step_img[phase])
-                x5 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
+                cL = (1024-160)/4096
+                cH = (1024+240)/4096
+                x5 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1).clamp(cL,cH), normalize=True, scale_each=True)
                 writer.add_image(phase+' Noisy Image', x5, step_img[phase])
-                x6 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
+                x6 = vutils.make_grid(im_noisy.clamp(cL,cH), normalize=True, scale_each=True)
                 writer.add_image(phase+' Noisy Image 3 slices', x6, step_img[phase])
                 step_img[phase] += 1
 
@@ -269,7 +286,27 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
         lr_scheduler['P'].step()
         # save model
         model_prefix = 'model_'
-        save_path_model = str(Path(args['model_dir']) / (model_prefix+str(epoch+1)))
+        model_state_prefix = 'model_state_'
+        model_postfix = ''
+        save_gap = 10
+        if ssim_per_epoch > best_val_ssim:
+            print(' >>> epoch '+str(epoch)+' renewed ssim from '+str(best_val_ssim)+' to '+str(ssim_per_epoch)+' !!')
+            model_postfix = '_ssim_'+(("{:.4f}".format(ssim_per_epoch))[2:])
+            best_val_ssim = ssim_per_epoch
+            if epoch % save_gap is not 0 and best_epoch >= 0:
+                for p in Path(".").glob(str(Path(args['model_dir']) / (model_prefix+"{0:0=3d}".format(best_epoch)+'*'))):
+                    p.unlink()
+                for p in Path(".").glob(str(Path(args['model_dir']) / (model_state_prefix+"{0:0=3d}".format(best_epoch)+'*.pt'))):
+                    p.unlink()
+            best_epoch = epoch
+        elif (epoch-1) % save_gap is not 0 and epoch-1 is not best_epoch:
+            print('    > removing last epoch '+str(epoch-1)+'...')
+            for p in Path(".").glob(str(Path(args['model_dir']) / (model_prefix+"{0:0=3d}".format(epoch-1)+'*'))):
+                p.unlink()
+            for p in Path(".").glob(str(Path(args['model_dir']) / (model_state_prefix+"{0:0=3d}".format(epoch-1)+'*.pt'))):
+                p.unlink()
+
+        save_path_model = str(Path(args['model_dir']) / (model_prefix+"{0:0=3d}".format(epoch)+model_postfix))  # no +1
         torch.save({
             'epoch': epoch+1,
             'step': step+1,
@@ -278,8 +315,7 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
             'optimizer_state_dict': {x: optimizer[x].state_dict() for x in ['D', 'P', 'G']},
             'lr_scheduler_state_dict': {x: lr_scheduler[x].state_dict() for x in ['D', 'P', 'G']}
             }, save_path_model)
-        model_prefix = 'model_state_'
-        save_path_model = str(Path(args['model_dir']) / (model_prefix+str(epoch+1)+'.pt'))
+        save_path_model = str(Path(args['model_dir']) / (model_state_prefix+"{0:0=3d}".format(epoch)+'.pt'))
         torch.save({x:net[x].state_dict() for x in ['D', 'G']}, save_path_model)
 
         writer.add_scalars('MAE_epoch', mae_epoch, epoch)
