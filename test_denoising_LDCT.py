@@ -53,13 +53,13 @@ def test_all(net, datasets, args):
         mae_iter = F.l1_loss(im_denoise, im_gt)
         # im_denoise.clamp_(0.0, 1.0) ####
         ########################################
-        HU_min = -160
-        HU_range = 400
+        # HU_min = -160
+        # HU_range = 400
         # im_denoise_ = (im_denoise - HU_min)/HU_range
-        im_gt_ = (im_gt - HU_min)/HU_range
+        # im_gt_ = (im_gt - HU_min)/HU_range
         # im_denoise_.clamp_(0.0, 1.0)
-        im_gt_.clamp_(0.0, 1.0)
-        # im_gt_ = from4kto400(im_gt)
+        # im_gt_.clamp_(0.0, 1.0)
+        im_gt_ = from4kto400(im_gt)
         im_denoise_ = from4kto400(im_denoise)
         ########################################
         mae_epoch[phase] += mae_iter

@@ -106,8 +106,8 @@ def train_step_D(net, x, y, optimizerD, args): # Denoiser - residual only
     fake_x_data = torch.cat([fake_x_, y_], 1)
     fake_x_loss = net['P'](fake_x_data).mean()
     loss_x = -(1-alpha) * fake_x_loss
-    loss_e =  args['tau_D'] * mae_loss
-    loss = loss_x + loss_e
+    loss_e = args['tau_D'] * mae_loss
+    loss = args['w_DAdv'] * loss_x + loss_e
     # backward
     loss.backward()
     optimizerD.step()

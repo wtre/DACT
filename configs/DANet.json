@@ -32,11 +32,12 @@
     "log_dir": "./logs_DANet",
 
     ########### hyper-parameters of our model ##########
-    "alpha": 0.5,
+    "alpha": 0.1,
     # kernel size for the Gauss filter in loss function
     "ksize": 5,
     "lambda_gp": 10,
     "tau_D": 1000, # could be 1000*4096
-    "tau_G": 10, # could be 10*4096
+    "tau_G": 50, # could be 10*4096
+    "w_DAdv": 0.05, # New forced Denoiser GAN loss on train_step_D
     "num_critic": 3
 }
