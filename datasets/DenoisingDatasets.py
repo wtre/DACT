@@ -79,7 +79,7 @@ class LDCTTrain(BaseDataSetH5):
         x = torch.from_numpy(x).float().permute((2,0,1))
         x2 = torch.from_numpy(x2).float().permute((2,0,1))
         y2 = np.load(self.files_y[index])
-        y = fftpack.dct(y2)
+        y = fftpack.dct(y2, axis=1)
         y = torch.from_numpy(y).float().permute((2,0,1))
         y2 = torch.from_numpy(y2).float().permute((2,0,1))
         if self.ifnorm:
@@ -100,11 +100,11 @@ class LDCTTest(BaseDataSetH5):
 
     def __getitem__(self, index):
         x2 = np.load(self.files_x[index])
-        x = fftpack.dct(x2)
+        x = fftpack.dct(x2, axis=1)
         x = torch.from_numpy(x).float().permute((2,0,1))
         x2 = torch.from_numpy(x2).float().permute((2,0,1))
         y2 = np.load(self.files_y[index])
-        y = fftpack.dct(y2)
+        y = fftpack.dct(y2, axis=1)
         y = torch.from_numpy(y).float().permute((2,0,1))
         y2 = torch.from_numpy(y2).float().permute((2,0,1))
         if self.ifnorm:
@@ -124,11 +124,11 @@ class LDCTTest512(BaseDataSetH5):
 
     def __getitem__(self, index):
         x2 = np.load(self.files_x[index])
-        x = fftpack.dct(x2)
+        x = fftpack.dct(x2, axis=1)
         x = torch.from_numpy(x).float().permute((2,0,1))
         x2 = torch.from_numpy(x2).float().permute((2,0,1))
         y2 = np.load(self.files_y[index])
-        y = fftpack.dct(y2)
+        y = fftpack.dct(y2, axis=1)
         y = torch.from_numpy(y).float().permute((2,0,1))
         y2 = torch.from_numpy(y2).float().permute((2,0,1))
         if self.ifnorm:
