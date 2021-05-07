@@ -14,6 +14,7 @@ from glob import glob
 from skimage import img_as_float32 as img_as_float
 from .data_tools import random_augmentation
 from . import BaseDataSetH5, BaseDataSetFolder
+from scipy import fftpack
 
 
 # Benchmardk Datasets: and SIDD
@@ -64,23 +65,26 @@ class BenchmarkTest(BaseDataSetH5):
 # Custom Datasets: Mayo
 # TODO: [doing now] swap the following two function into the mayo ones
 class LDCTTrain(BaseDataSetH5):
-    def __init__(self, h5_file, length, pch_size=128, mask=False, ifnorm=False):
+    def __init__(self, h5_file, length, pch_size=128, mask=False, ifnorm=False, domain='CT'):
         # TODO: h5_file and mask is not working!
-        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_*.npy')))
-        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_*.npy')))
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_01_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_01_*.npy')))
         self.mask = mask
         self.ifnorm = ifnorm
+        self.domain=domain
 
     def __getitem__(self, index):
-        x = np.load(self.files_x[index])
+        x2 = np.load(self.files_x[index])
+        x = fftpack.dct(x2, axis=1)
         x = torch.from_numpy(x).float().permute((2,0,1))
-        y = np.load(self.files_y[index])
+        x2 = torch.from_numpy(x2).float().permute((2,0,1))
+        y2 = np.load(self.files_y[index])
+        y = fftpack.dct(y2)
         y = torch.from_numpy(y).float().permute((2,0,1))
+        y2 = torch.from_numpy(y2).float().permute((2,0,1))
         if self.ifnorm:
             x = torch.clamp((x+1024)/4096, 0, 1)
             y = torch.clamp((y+1024)/4096, 0, 1)
-        if self.mask:
-            return x, y, torch.ones((1,1,1), dtype=torch.float32)
         else:
             return x, y
 
@@ -95,14 +99,18 @@ class LDCTTest(BaseDataSetH5):
         self.ifnorm = ifnorm
 
     def __getitem__(self, index):
-        x = np.load(self.files_x[index])
+        x2 = np.load(self.files_x[index])
+        x = fftpack.dct(x2)
         x = torch.from_numpy(x).float().permute((2,0,1))
-        y = np.load(self.files_y[index])
+        x2 = torch.from_numpy(x2).float().permute((2,0,1))
+        y2 = np.load(self.files_y[index])
+        y = fftpack.dct(y2)
         y = torch.from_numpy(y).float().permute((2,0,1))
+        y2 = torch.from_numpy(y2).float().permute((2,0,1))
         if self.ifnorm:
             x = torch.clamp((x+1024)/4096, 0, 1)
             y = torch.clamp((y+1024)/4096, 0, 1)
-        return x, y
+        return x, y#, x2, y2
 
     def __len__(self):
         return len(self.files_x)
@@ -115,14 +123,19 @@ class LDCTTest512(BaseDataSetH5):
         self.ifnorm = ifnorm
 
     def __getitem__(self, index):
-        x = np.load(self.files_x[index])
-        x = torch.from_numpy(x).float().squeeze().permute((2,0,1))
-        y = np.load(self.files_y[index])
-        y = torch.from_numpy(y).float().squeeze().permute((2,0,1))
+        x2 = np.load(self.files_x[index])
+        x = fftpack.dct(x2)
+        x = torch.from_numpy(x).float().permute((2,0,1))
+        x2 = torch.from_numpy(x2).float().permute((2,0,1))
+        y2 = np.load(self.files_y[index])
+        y = fftpack.dct(y2)
+        y = torch.from_numpy(y).float().permute((2,0,1))
+        y2 = torch.from_numpy(y2).float().permute((2,0,1))
         if self.ifnorm:
             x = torch.clamp((x+1024)/4096, 0, 1)
             y = torch.clamp((y+1024)/4096, 0, 1)
-        return x, y
+        return x, y#, x2, y2
+
 
     def __len__(self):
         return len(self.files_x)

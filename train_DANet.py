@@ -188,7 +188,7 @@ def train_epoch(net, datasets, optimizer, lr_scheduler, args):
                     writer.add_scalar('Train DNet Loss Iter', DL.item(), step)
                     writer.add_scalar('Train GNet Loss Iter', GL.item(), step)
                     step += 1
-                    if (ii+1) % (10*args['print_freq'])==0:
+                    if (ii+1) % (2*args['print_freq'])==0:
                         x1 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
                         writer.add_image(phase+' Noisy Image', x1, step_img[phase])
                         x2 = vutils.make_grid(im_gt[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
