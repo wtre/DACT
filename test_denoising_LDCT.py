@@ -13,6 +13,8 @@ from torch.utils.tensorboard import SummaryWriter
 import warnings
 from pathlib import Path
 import commentjson as json
+from scipy import fftpack
+
 
 # filter warnings
 warnings.simplefilter('ignore', Warning, lineno=0)
@@ -59,6 +61,12 @@ def test_all(net, datasets, args):
         # im_gt_ = (im_gt - HU_min)/HU_range
         # im_denoise_.clamp_(0.0, 1.0)
         # im_gt_.clamp_(0.0, 1.0)
+        # # # # # # # # # # # # # # # #
+        im_gt_np = im_gt.cpu().numpy()
+        im_denoise_np = im_denoise.cpu().numpy()
+        im_gt = torch.from_numpy(fftpack.idct(im_gt_np, axis=3))
+        im_denoise = torch.from_numpy(fftpack.idct(im_denoise_np, axis=3))
+        # # # # # # # # # # # # # # # #
         im_gt_ = from4kto400(im_gt)
         im_denoise_ = from4kto400(im_denoise)
         ########################################

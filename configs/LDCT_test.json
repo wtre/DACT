@@ -5,7 +5,7 @@
     "num_workers": 4, 
     "gpu_id": 1,
     # path to the binary file
-    "model_path": "./models_DANet/model_019_ssim_8016",
+    "model_path": "./test/model_018_ssim_8029",
 
     # additional settings (not yet)
 
