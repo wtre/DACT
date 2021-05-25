@@ -13,6 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 import warnings
 from pathlib import Path
 import commentjson as json
+from scipy import fftpack
 
 # filter warnings
 warnings.simplefilter('ignore', Warning, lineno=0)
@@ -59,8 +60,17 @@ def test_all(net, datasets, args):
         # im_gt_ = (im_gt - HU_min)/HU_range
         # im_denoise_.clamp_(0.0, 1.0)
         # im_gt_.clamp_(0.0, 1.0)
+        # # # # # # # # # # # # # # # #
+        im_gt_np = im_gt.cpu().numpy()
+        im_denoise_np = im_denoise.cpu().numpy()
+        im_noisy_np = im_noisy.cpu().numpy()
+        im_gt = torch.from_numpy(fftpack.idctn(im_gt_np, axes=(3,2)))/4
+        im_denoise = torch.from_numpy(fftpack.idctn(im_denoise_np, axes=(3,2)))/4
+        im_noisy = torch.from_numpy(fftpack.idctn(im_noisy_np, axes=(3,2)))/4
+        # # # # # # # # # # # # # # # #
         im_gt_ = from4kto400(im_gt)
         im_denoise_ = from4kto400(im_denoise)
+        im_noisy_ = from4kto400(im_noisy)
         ########################################
         mae_epoch[phase] += mae_iter
         psnr_iter = batch_PSNR(im_denoise_, im_gt_)
@@ -76,10 +86,22 @@ def test_all(net, datasets, args):
             writer.add_image(phase+' Denoised images', x1, step_img[phase])
             x2 = vutils.make_grid(im_gt[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
             writer.add_image(phase+' GroundTruth', x2, step_img[phase])
+            x3 = vutils.make_grid(im_gt_[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=False, range=(0,1))
+            writer.add_image(phase+' GroundTruth but must be [-160, 240]', x3, step_img[phase])
+            x4 = vutils.make_grid(im_gt_[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=False, range=(.25,.75))
+            writer.add_image(phase+' GroundTruth test on [-60, 140]', x4, step_img[phase])
             x5 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
             writer.add_image(phase+' Noisy Image', x5, step_img[phase])
-            x6 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
-            writer.add_image(phase+' Noisy Image 3 slices', x6, step_img[phase])
+            x6 = vutils.make_grid(im_noisy_, normalize=False, scale_each=False, range=(0, 1))
+            writer.add_image(phase+' Noisy Image 3 slices, [-160, 240]', x6, step_img[phase])
+            x7 = vutils.make_grid(im_denoise_[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)-im_gt_, normalize=False, scale_each=False, range=(-.5, .5))
+            writer.add_image(phase+' difference 3 slices (4k->400)', x7, step_img[phase])
+            x8 = vutils.make_grid(im_noisy_[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)-im_gt_, normalize=False, scale_each=False, range=(-.5, .5))
+            writer.add_image(phase+' gt noise diff (4k->400)', x8, step_img[phase])
+            x9 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)-im_gt, normalize=False, scale_each=False, range=(-.5, .5))
+            writer.add_image(phase+' gt noise diff (0,1 as it is)', x9, step_img[phase])
+            x10 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)-im_gt, normalize=True, scale_each=False, range=(-.5, .5))
+            writer.add_image(phase+' same thing but norm=True', x10, step_img[phase])
             step_img[phase] += 1
 
     psnr_per_epoch /= (ii+1)
