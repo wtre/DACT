@@ -62,56 +62,78 @@ class BenchmarkTest(BaseDataSetH5):
         return im_noisy, im_gt
 
 
+def weight_matrix_func(x, a1, b1, a2, b2, c):
+    if torch.is_tensor(x):
+        return torch.exp(a1 * x**b1 + a2 * x**b2 + c)
+    else:
+        return np.exp(a1 * x**b1 + a2 * x**b2 + c)
+
+
+def create_wmat(pch_size):
+    coeffs = np.load('data/coeffs_03301.npy')
+    wmat = torch.linspace(0, 0.5, pch_size)
+    wmat = wmat.repeat(pch_size, 1)
+    wmat = wmat + wmat.transpose(0, 1)
+    wmat = weight_matrix_func(wmat, *coeffs)
+    return wmat.repeat(3, 1, 1)
+
+
 # Custom Datasets: Mayo
 # TODO: [doing now] swap the following two function into the mayo ones
 class LDCTTrain(BaseDataSetH5):
-    def __init__(self, h5_file, length, pch_size=128, mask=False, ifnorm=False, domain='CT'):
+    def __init__(self, h5_file, length, pch_size=128, mask=False, if_dct_norm=True, domain='CT'):
         # TODO: h5_file and mask is not working!
-        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_01_*.npy')))
-        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_01_*.npy')))
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_*.npy')))
         self.mask = mask
-        self.ifnorm = ifnorm
+        self.if_dct_norm = if_dct_norm
         self.domain=domain
         self.p = pch_size
+        if if_dct_norm:
+            self.wmat = create_wmat(pch_size)
 
     def __getitem__(self, index):
+        # for DCT we decided to multiply sqrt(2/N) for both dct and idct.
         x2 = np.load(self.files_x[index])
         x = fftpack.dctn(x2, axes=(0,1))
-        x = torch.from_numpy(x).float().permute((2,0,1)) / (self.p**2)
-        x2 = torch.from_numpy(x2).float().permute((2,0,1))
+        x = torch.from_numpy(x).float().permute((2,0,1)) / (2*self.p)
+        # x2 = torch.from_numpy(x2).float().permute((2,0,1))
         y2 = np.load(self.files_y[index])
         y = fftpack.dctn(y2, axes=(0,1))
-        y = torch.from_numpy(y).float().permute((2,0,1)) / (self.p**2)
-        y2 = torch.from_numpy(y2).float().permute((2,0,1))
-        if self.ifnorm:
-            x = torch.clamp((x+1024)/4096, 0, 1)
-            y = torch.clamp((y+1024)/4096, 0, 1)
-        else:
-            return x, y
+        y = torch.from_numpy(y).float().permute((2,0,1)) / (2*self.p)
+        # y2 = torch.from_numpy(y2).float().permute((2,0,1))
+
+        if self.if_dct_norm:
+            x *= self.wmat
+            y *= self.wmat
+        return x, y
 
     def __len__(self):
         return len(self.files_x)
 
 
 class LDCTTest(BaseDataSetH5):
-    def __init__(self, index, ifnorm=False):
+    def __init__(self, index, if_dct_norm=False):
         self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_val', 'val_LDCT_*.npy')))
         self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_val', 'val_NDCT_*.npy')))
-        self.ifnorm = ifnorm
+        self.if_dct_norm = if_dct_norm
+        if if_dct_norm:
+            self.wmat = create_wmat(128)
 
     def __getitem__(self, index):
         x2 = np.load(self.files_x[index])
-        dct_factor = x2.shape[0] * x2.shape[1]
+        dct_factor = 2 * x2.shape[0] * x2.shape[1]
         x = fftpack.dctn(x2, axes=(0,1))
         x = torch.from_numpy(x).float().permute((2,0,1)) / dct_factor
-        x2 = torch.from_numpy(x2).float().permute((2,0,1))
+        # x2 = torch.from_numpy(x2).float().permute((2,0,1))
         y2 = np.load(self.files_y[index])
         y = fftpack.dctn(y2, axes=(0,1))
         y = torch.from_numpy(y).float().permute((2,0,1)) / dct_factor
-        y2 = torch.from_numpy(y2).float().permute((2,0,1))
-        if self.ifnorm:
-            x = torch.clamp((x+1024)/4096, 0, 1)
-            y = torch.clamp((y+1024)/4096, 0, 1)
+        # y2 = torch.from_numpy(y2).float().permute((2,0,1))
+
+        if self.if_dct_norm:
+            x *= self.wmat
+            y *= self.wmat
         return x, y#, x2, y2
 
     def __len__(self):
@@ -119,24 +141,26 @@ class LDCTTest(BaseDataSetH5):
 
 
 class LDCTTest512(BaseDataSetH5):
-    def __init__(self, index, ifnorm=False):
+    def __init__(self, index, if_dct_norm=False):
         self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/512_LDCT_test', 'test_LDCT_*.npy')))
         self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/512_NDCT_test', 'test_NDCT_*.npy')))
-        self.ifnorm = ifnorm
+        self.if_dct_norm = if_dct_norm
 
     def __getitem__(self, index):
         x2 = np.load(self.files_x[index])
-        dct_factor = x2.shape[0] * x2.shape[1]
+        dct_factor = 2 * x2.shape[0] * x2.shape[1]
         x = fftpack.dctn(x2, axes=(0,1))
         x = torch.from_numpy(x).float().permute((2,0,1)) / dct_factor
-        x2 = torch.from_numpy(x2).float().permute((2,0,1))
+        # x2 = torch.from_numpy(x2).float().permute((2,0,1))
         y2 = np.load(self.files_y[index])
         y = fftpack.dctn(y2, axes=(0,1))
         y = torch.from_numpy(y).float().permute((2,0,1)) / dct_factor
-        y2 = torch.from_numpy(y2).float().permute((2,0,1))
-        if self.ifnorm:
-            x = torch.clamp((x+1024)/4096, 0, 1)
-            y = torch.clamp((y+1024)/4096, 0, 1)
+        # y2 = torch.from_numpy(y2).float().permute((2,0,1))
+
+        if self.if_dct_norm:
+            wmat = create_wmat(y.shape[0])
+            x *= wmat
+            y *= wmat
         return x, y#, x2, y2
 
 

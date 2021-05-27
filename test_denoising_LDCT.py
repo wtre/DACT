@@ -61,12 +61,13 @@ def test_all(net, datasets, args):
         # im_denoise_.clamp_(0.0, 1.0)
         # im_gt_.clamp_(0.0, 1.0)
         # # # # # # # # # # # # # # # #
+        dct_factor = 2 * im_gt.shape[2] * im_gt.shape[3]
         im_gt_np = im_gt.cpu().numpy()
         im_denoise_np = im_denoise.cpu().numpy()
         im_noisy_np = im_noisy.cpu().numpy()
-        im_gt = torch.from_numpy(fftpack.idctn(im_gt_np, axes=(3,2)))/4
-        im_denoise = torch.from_numpy(fftpack.idctn(im_denoise_np, axes=(3,2)))/4
-        im_noisy = torch.from_numpy(fftpack.idctn(im_noisy_np, axes=(3,2)))/4
+        im_gt = torch.from_numpy(fftpack.idctn(im_gt_np, axes=(3,2))) / dct_factor
+        im_denoise = torch.from_numpy(fftpack.idctn(im_denoise_np, axes=(3,2))) / dct_factor
+        im_noisy = torch.from_numpy(fftpack.idctn(im_noisy_np, axes=(3,2))) / dct_factor
         # # # # # # # # # # # # # # # #
         im_gt_ = from4kto400(im_gt)
         im_denoise_ = from4kto400(im_denoise)
