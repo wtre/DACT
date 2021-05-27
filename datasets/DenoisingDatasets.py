@@ -104,8 +104,8 @@ class LDCTTrain(BaseDataSetH5):
         # y2 = torch.from_numpy(y2).float().permute((2,0,1))
 
         if self.if_dct_norm:
-            x *= self.wmat
-            y *= self.wmat
+            x /= self.wmat
+            y /= self.wmat
         return x, y
 
     def __len__(self):
@@ -132,8 +132,8 @@ class LDCTTest(BaseDataSetH5):
         # y2 = torch.from_numpy(y2).float().permute((2,0,1))
 
         if self.if_dct_norm:
-            x *= self.wmat
-            y *= self.wmat
+            x /= self.wmat
+            y /= self.wmat
         return x, y#, x2, y2
 
     def __len__(self):
@@ -159,8 +159,8 @@ class LDCTTest512(BaseDataSetH5):
 
         if self.if_dct_norm:
             wmat = create_wmat(y.shape[0])
-            x *= wmat
-            y *= wmat
+            x /= wmat
+            y /= wmat
         return x, y#, x2, y2
 
 
