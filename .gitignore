@@ -4,6 +4,9 @@ figs
 logs_DANet
 models_DANet
 test_data
+tests_DANet
 .idea
 *.pdf
 README.md
+
+

@@ -122,7 +122,7 @@ class LDCTTest(BaseDataSetH5):
 
     def __getitem__(self, index):
         x2 = np.load(self.files_x[index])
-        dct_factor = 2 * x2.shape[0] * x2.shape[1]
+        dct_factor = 2 * x2.shape[0] #* x2.shape[1]
         x = fftpack.dctn(x2, axes=(0,1))
         x = torch.from_numpy(x).float().permute((2,0,1)) / dct_factor
         # x2 = torch.from_numpy(x2).float().permute((2,0,1))
@@ -148,7 +148,7 @@ class LDCTTest512(BaseDataSetH5):
 
     def __getitem__(self, index):
         x2 = np.load(self.files_x[index])
-        dct_factor = 2 * x2.shape[0] * x2.shape[1]
+        dct_factor = 2 * x2.shape[0] #* x2.shape[1]
         x = fftpack.dctn(x2, axes=(0,1))
         x = torch.from_numpy(x).float().permute((2,0,1)) / dct_factor
         # x2 = torch.from_numpy(x2).float().permute((2,0,1))
