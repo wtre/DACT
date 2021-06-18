@@ -1,11 +1,11 @@
 {
     # testing settings
-    "batch_size": 2,
+    "batch_size": 16,
     "print_freq": 100,
     "num_workers": 4, 
     "gpu_id": 1,
     # path to the binary file
-    "model_path": "./models_DANet/model_010",
+    "model_path": "./models_DANet/model_030_ssim_9989",
 
     # additional settings (not yet)
 

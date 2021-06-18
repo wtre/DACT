@@ -5,7 +5,7 @@ import time
 import torch
 import torch.utils.data as uData
 from networks import UNetD
-from datasets.DenoisingDatasets import LDCTTest512
+from datasets.DenoisingDatasets import LDCTTest
 from math import ceil
 from utils import *
 import torchvision.utils as vutils
@@ -35,11 +35,16 @@ def weight_matrix_func(x, a1, b1, a2, b2, c):
 
 
 def create_wmat(pch_size):
-    coeffs = np.load('data/coeffs_00301.npy')
+    coeffs = np.load('data/coeffs_03301.npy')
     wmat = torch.linspace(0, 0.5, pch_size)
     wmat = wmat.repeat(pch_size, 1)
     wmat = wmat + wmat.transpose(0, 1)
     wmat = weight_matrix_func(wmat, *coeffs)
+    return wmat.repeat(3, 1, 1)
+
+
+def load_wmat():
+    wmat = torch.from_numpy(np.load('data/avg_of_52816.npy'))
     return wmat.repeat(3, 1, 1)
 
 
@@ -59,7 +64,8 @@ def test_all(net, datasets, args):
 
     mae_epoch = {'val':0}
 
-    wmat_base = create_wmat(512)
+    # wmat_base = create_wmat(128)
+    wmat_base = load_wmat()
 
     # test stage
     tic = time.time()
@@ -86,9 +92,9 @@ def test_all(net, datasets, args):
         im_gt_np = im_gt.cpu().numpy()
         im_denoise_np = im_denoise.cpu().numpy()
         im_noisy_np = im_noisy.cpu().numpy()
-        im_gt = torch.from_numpy(fftpack.idctn(im_gt_np*wmat, axes=(3,2))) / dct_factor/16
-        im_denoise = torch.from_numpy(fftpack.idctn(im_denoise_np*wmat, axes=(3,2))) / dct_factor/16
-        im_noisy = torch.from_numpy(fftpack.idctn(im_noisy_np*wmat, axes=(3,2))) / dct_factor/16
+        im_gt = torch.from_numpy(fftpack.idctn(im_gt_np*wmat, axes=(3,2))) / dct_factor
+        im_denoise = torch.from_numpy(fftpack.idctn(im_denoise_np*wmat, axes=(3,2))) / dct_factor
+        im_noisy = torch.from_numpy(fftpack.idctn(im_noisy_np*wmat, axes=(3,2))) / dct_factor
         # # # # # # # # # # # # # # # #
         im_gt_ = from4kto400(im_gt)
         im_denoise_ = from4kto400(im_denoise)
@@ -125,10 +131,10 @@ def test_all(net, datasets, args):
             x10 = vutils.make_grid(im_noisy[:, 1, :, :].unsqueeze(1).repeat(1, 3, 1, 1)-im_gt, normalize=True, scale_each=False, range=(-.5, .5))
             writer.add_image(phase+' same thing but norm=True', x10, step_img[phase])
             step_img[phase] += 1
-            x11 = vutils.make_grid(torch.from_numpy(im_denoise_np).unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
-            writer.add_image(phase+' Denoised dct', x11, step_img[phase])
-            x12 = vutils.make_grid(torch.from_numpy(im_gt_np).unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
-            writer.add_image(phase+' Denoised gt', x12, step_img[phase])
+            # x11 = vutils.make_grid(torch.from_numpy(im_denoise_np).unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
+            # writer.add_image(phase+' Denoised dct', x11, step_img[phase])
+            # x12 = vutils.make_grid(torch.from_numpy(im_gt_np).unsqueeze(1).repeat(1, 3, 1, 1), normalize=True, scale_each=True)
+            # writer.add_image(phase+' Denoised gt', x12, step_img[phase])
 
     psnr_per_epoch /= (ii+1)
     ssim_per_epoch /= (ii+1)
@@ -179,7 +185,7 @@ def main():
     #                                    pch_size=args['patch_size'],
     #                                    mask=False),
     #             'val':BenchmarkTest(args['SIDD_test_h5'])}
-    datasets = {'val':LDCTTest512(args['SIDD_test_h5'])}
+    datasets = {'val':LDCTTest(args['SIDD_test_h5'])}
 
     # test model
     print('\nBegin testing with GPU: ' + str(args['gpu_id']))

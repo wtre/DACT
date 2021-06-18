@@ -12,7 +12,7 @@ import numpy as np
 import torch.utils.data as uData
 from glob import glob
 from skimage import img_as_float32 as img_as_float
-from .data_tools import random_augmentation
+# from .data_tools import random_augmentation
 from . import BaseDataSetH5, BaseDataSetFolder
 from scipy import fftpack
 
@@ -78,13 +78,18 @@ def create_wmat(pch_size):
     return wmat.repeat(3, 1, 1)
 
 
+def load_wmat():
+    wmat = torch.from_numpy(np.load('data/avg_of_52816.npy'))
+    return wmat.repeat(3, 1, 1)
+
+
 # Custom Datasets: Mayo
 # TODO: [doing now] swap the following two function into the mayo ones
 class LDCTTrain(BaseDataSetH5):
     def __init__(self, h5_file, length, pch_size=128, mask=False, if_dct_norm=True, domain='CT'):
         # TODO: h5_file and mask is not working!
-        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_*.npy')))
-        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_*.npy')))
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_01_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_01_*.npy')))
         self.mask = mask
         self.if_dct_norm = if_dct_norm
         self.domain=domain
@@ -114,15 +119,17 @@ class LDCTTrain(BaseDataSetH5):
 
 class LDCTTest(BaseDataSetH5):
     def __init__(self, index, if_dct_norm=False):
-        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_val', 'val_LDCT_*.npy')))
-        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_val', 'val_NDCT_*.npy')))
+        # self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_val', 'val_LDCT_*.npy')))
+        # self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_val', 'val_NDCT_*.npy')))
+        self.files_x = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_LDCT_train', 'train_LDCT_01_*.npy')))
+        self.files_y = sorted(glob(os.path.join('../mocomed/dataset/DANet_CT/128_NDCT_train', 'train_NDCT_01_*.npy')))
         self.if_dct_norm = if_dct_norm
         if if_dct_norm:
             self.wmat = create_wmat(128)
 
     def __getitem__(self, index):
         x2 = np.load(self.files_x[index])
-        dct_factor = 2 * x2.shape[0] * x2.shape[1]
+        dct_factor = 2 * x2.shape[0] #* x2.shape[1]
         x = fftpack.dctn(x2, axes=(0,1))
         x = torch.from_numpy(x).float().permute((2,0,1)) / dct_factor
         # x2 = torch.from_numpy(x2).float().permute((2,0,1))
@@ -148,7 +155,7 @@ class LDCTTest512(BaseDataSetH5):
 
     def __getitem__(self, index):
         x2 = np.load(self.files_x[index])
-        dct_factor = 2 * x2.shape[0] * x2.shape[1]
+        dct_factor = 2 * x2.shape[0] #* x2.shape[1]
         x = fftpack.dctn(x2, axes=(0,1))
         x = torch.from_numpy(x).float().permute((2,0,1)) / dct_factor
         # x2 = torch.from_numpy(x2).float().permute((2,0,1))
